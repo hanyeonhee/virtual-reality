@@ -12,23 +12,23 @@ class UExponentialHeightFogComponent;
 /**
  * AExponentialHeightFogActor
  *
- * Blueprint-friendly actor that wraps UExponentialHeightFogComponent
- * and exposes every height-fog + volumetric-fog parameter as a
- * UPROPERTY so designers can tweak them in the Details panel or
- * drive them at runtime from Blueprint / C++.
+ * 판옵티콘 VR 씬 전용 Exponential Height Fog Actor.
+ * UExponentialHeightFogComponent를 래핑하고 모든 안개/볼류메트릭
+ * 파라미터를 Blueprint·C++ 에서 런타임 조작 가능하도록 노출한다.
  *
- * Place this actor in the level instead of the engine default
- * ExponentialHeightFog to get runtime-adjustable volumetric fog.
+ * 기본값은 무채색 실내 판옵티콘 분위기에 맞춰 설정됨:
+ *   - 차갑고 밀도 높은 회색 안개 (숨을 곳 없는 불안감)
+ *   - Volumetric Fog 기본 활성화
+ *   - 감시 감지 시 InscatteringColor 가 회색 → 붉은색으로 전환
  *
  * Usage (Blueprint):
- *   1. Drag into level → configure in Details.
- *   2. Call SetFogDensity() / SetVolumetricFog() etc. at runtime.
+ *   1. 레벨에 드래그 → Details 패널에서 파라미터 편집
+ *   2. 플레이어 감지 이벤트에서 SetInscatteringColor(Red) 호출
  *
  * Usage (C++):
  *   AExponentialHeightFogActor* FogActor =
  *       World->SpawnActor<AExponentialHeightFogActor>();
- *   FogActor->SetFogDensity(0.02f);
- *   FogActor->SetVolumetricFogEnabled(true);
+ *   FogActor->TriggerSurveillanceMode(true);
  */
 UCLASS(BlueprintType, Blueprintable, HideCategories=(Rendering, Replication, Input, Actor))
 class YEONHEEHAN_API AExponentialHeightFogActor : public AActor
@@ -55,38 +55,42 @@ public:
     // SECTION 1 : Exponential Height Fog
     // ─────────────────────────────────────────────────────────────────────────
 
-    /** Global fog density scalar. Larger values = thicker fog. */
+    /**
+     * 전체 안개 밀도. 판옵티콘 실내 공간의 압박감을 위해 기본값을 높게 설정.
+     * (0.05 = 짙은 실내 안개 / 0.005 = 옅은 일반 야외 안개)
+     */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Exponential Height Fog",
               meta=(ClampMin="0.0", ClampMax="10.0", UIMin="0.0", UIMax="1.0"))
-    float FogDensity = 0.02f;
+    float FogDensity = 0.05f;
 
     /**
-     * Height (world units) at which the fog starts.
-     * Fog density is highest at this height and falls off exponentially above it.
+     * 안개 기준 높이 (월드 단위 cm).
+     * 이 높이에서 밀도가 최대이며 위로 갈수록 지수적으로 감소.
+     * 실내 바닥 레벨에 맞춰 0 설정.
      */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Exponential Height Fog",
               meta=(UIMin="-10000.0", UIMax="10000.0"))
     float FogHeightOffset = 0.0f;
 
     /**
-     * Controls how quickly fog density falls off above FogHeightOffset.
-     * Smaller = fog spreads higher into the sky.
+     * 높이에 따른 밀도 감소율. 낮을수록 안개가 더 높이 퍼짐.
+     * 판옵티콘 실내: 0.08 (천장까지 꽉 차는 안개)
      */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Exponential Height Fog",
               meta=(ClampMin="0.001", ClampMax="2.0", UIMin="0.001", UIMax="2.0"))
-    float FogHeightFalloff = 0.2f;
+    float FogHeightFalloff = 0.08f;
 
-    /** Maximum opacity (0–1). Prevents fog from completely obscuring distant objects. */
+    /** 최대 불투명도. 1.0 = 완전 차단. 판옵티콘 씬은 1.0 권장. */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Exponential Height Fog",
               meta=(ClampMin="0.0", ClampMax="1.0"))
     float FogMaxOpacity = 1.0f;
 
-    /** Distance (cm) from the camera before fog starts accumulating. */
+    /** 카메라로부터 안개가 시작되는 거리 (cm). 0 = 즉시 시작. */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Exponential Height Fog",
               meta=(ClampMin="0.0", UIMin="0.0", UIMax="5000.0"))
     float StartDistance = 0.0f;
 
-    /** World-space distance at which fog is fully opaque (-1 = infinite). */
+    /** 안개가 완전 불투명해지는 최대 거리 (-1 = 무제한). */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Exponential Height Fog",
               meta=(UIMin="-1.0", UIMax="200000.0"))
     float FogCutoffDistance = -1.0f;
